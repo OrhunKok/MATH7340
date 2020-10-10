@@ -1,0 +1,57 @@
+---
+title: "Module 1 Homework"
+author: "Orhun Kok"
+date: "9/11/2020"
+output: html_document
+---
+
+Part 1:
+
+a) Numeric
+
+b) An integer vector with the values 2, 4, 4, 6
+
+c) The number 0 is returned
+
+d) A two by two matrix
+
+e) 10
+
+Part 2:
+
+```{r setup, echo=FALSE, include = TRUE}
+x <- 1
+for (i in 1:1000){
+    x[i] <- i
+}
+sum(x^2)
+```
+
+Part 3:
+
+```{r setup 2,echo=FALSE, include = TRUE, warning = FALSE}
+
+## a)
+
+X <- seq(1,20, by = 2)
+X <- 2*X
+X
+
+## b)
+
+Y <- c(rep(0,20))
+Y
+
+## c)
+integrand <- function(t)sqrt(t)
+for (k in 1:20){ 
+  if (k < 12){
+    Y[k] <- cos(3*k)
+    } else if (k >= 12){
+        Y[k] <- integrate(integrand, lower = 0, upper = k) 
+    }
+}
+Y
+
+```
+
