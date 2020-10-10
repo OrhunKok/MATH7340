@@ -1,0 +1,132 @@
+---
+title: "Module 2 Homework"
+author: "Orhun Kok"
+date: "9/18/2020"
+output: html_document
+---
+
+```{r Setup, include = FALSE}
+# Load necessary packages
+library(BiocManager)
+library(multtest)
+```
+
+Question 1.
+
+a)
+```{r Part 1a, echo = FALSE}
+# Open Data and partition by leukemia type
+data(golub)
+gol.fac <- factor(golub.cl,levels = 0:1, labels = c("ALL","AML"))
+
+# Finding average experession for ALL patients
+meanALL <- apply(golub[,gol.fac == "ALL"], 1, mean)
+head(meanALL)
+```
+* See code for all values
+b)
+```{r Part 1b, echo = FALSE}
+# Finding average experession for AML patients
+meanAML <- apply(golub[,gol.fac == "AML"], 1, mean)
+head(meanAML)
+```
+* See code for all values
+c)
+```{r Part 1c, echo = FALSE}
+# Finding the three genes with largest mean expression for ALL patients, Order function gives index of largest values
+decreasingMeanALL <- order(meanALL, decreasing = TRUE)
+print(golub.gnames[decreasingMeanALL[1:3],2])
+```
+d)
+```{r Part 1d, echo = FALSE}
+# Finding the three genes with largest mean expression for AML patients, Order function gives index of largest values
+decreasingMeanAML <- order(meanAML, decreasing = TRUE)
+print(golub.gnames[decreasingMeanAML[1:3],2])
+```
+
+Question 2.
+
+a)
+```{r Part 2a, include = FALSE}
+# Expression values of first five genes of AML patients saved as a CSV file
+fiveAML <- golub[1:5,gol.fac == "AML"]
+fiveAML <- data.frame(fiveAML)
+write.csv(fiveAML, "AML5.csv", sep = ",")
+```
+* See Code
+b)
+```{r Part 2b, echo = FALSE}
+# Expression values of first five genes of ALL patients saved as a TXT file
+fiveALL <- golub[1:5,gol.fac == "ALL"]
+fiveALL <- data.frame(fiveALL)
+write.table(fiveALL, "ALL5.txt", sep = ",")
+```
+* See Code
+c)
+```{r Part 2c, echo = FALSE}
+# Standard Deviation of expression values of gene 100 to gene 200 for the first patient
+sdGenes <- sd(golub[100:200,1])
+print(sdGenes)
+```
+d)
+```{r Part 2d, echo = FALSE}
+# Standard deviation calculation for every gene for every patient
+sdAll <- apply(golub,1,sd)
+sdAll <- data.frame(sdAll)
+head(sdAll)
+# Number of genes with standard deviation greater than 1
+sdOne <- subset(sdAll, sdAll > 1)
+nrow(sdOne)
+```
+* See Code for all values
+
+e)
+```{r Part 2e, echo = FALSE}
+# Subsetting data into new variables to plot, and using indeces to determine name of genes
+X1 <- golub[101,]
+X2 <- golub[102,]
+golub.gnames[101,2]
+golub.gnames[102,2]
+plot(X1,X2, xlab = "NUCLEAR PORE COMPLEX PROTEIN NUP214(GENE 101)", ylab = "PHOSPHATIDYLSERINE SYNTHASE I(GENE 102)", main = "SCATTER PLOT OF GENE 101 EXPRESSION VS. GENE 102" )
+```
+
+```{r Setup 2, include = FALSE}
+# Loading necessary packages
+library(ALL)
+```
+Question 3.
+
+a)
+```{r Part 3a, echo = FALSE}
+# Loading data and extracting gene expressions in B1 patients to plot in gistogram
+data(ALL)
+B1 <- exprs(ALL[,ALL$BT=="B1"])
+hist(B1, main = "Gene Expression of patients in disease stage B1", xlab = "Patient")
+```
+b)
+```{r Part 3b, echo = FALSE}
+meanB1 <- apply(B1, 1, mean)
+head(meanB1)
+```
+* See code for all values
+c)
+```{r Part 3c, echo = FALSE}
+decreasingMeanB1 <- order(meanB1, decreasing = TRUE)
+identifiers <- B1[decreasingMeanB1[1:3],]
+identifiers <- row.names(identifiers)
+print(identifiers)
+```
+
+Question 4.
+
+a)
+```{r Part 4a, echo = FALSE}
+# typeof() function outputs the data type of trees
+data(trees)
+typeof(trees)
+```
+b)
+```{r Part 4b, echo = FALSE}
+# Plotting of the dataset according to instructions, pch values found on the internet
+plot(trees$Girth,trees$Volume, xlab = "Girth", ylab = "Volume(Red) or Height(Blue)", main = "Plot of Girth VS. Volume or Height for trees Data Set", ylim = c(0,110), pch = 1, col = "red") + points(trees$Girth,trees$Height, pch = 3, col = "blue")
+```
