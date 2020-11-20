@@ -1,0 +1,165 @@
+---
+title: "Module 6"
+author: "Orhun"
+date: "10/16/2020"
+output: html_document
+---
+```{r Question 1 setup, include = FALSE}
+# Load necessary packages
+library(BiocManager)
+library(multtest)
+```
+
+### Question 1.
+
+a) The null hypothesis: The mean gene expression value of the H4/j ALL group is less than -0.9
+The alternate hypothesis: The mean gene expression value of the H4/j ALL group is greater than -0.9
+
+b) The null hypothesis: The mean gene expression value of the H4/j ALL group is the same as the H4/j AML group
+The alternate hypothesis: The mean gene expression value of the H4/j ALL group differs from the H4/j AML group
+
+c) The null hypothesis: The mean gene expression value of the H4/j ALL group is not lower than the APS ALL group
+The alternate hypothesis: The mean gene expression value of the H4/j ALL group is lower than the APS ALL group
+
+d) The null hypothesis: Plow in the ALL group is less than half
+The alternate hypothesis: Plow in the ALL group is greater than half
+
+e) The null hypothesis: PH4j in the ALL group is greater than half
+The alternate hypothesis: PH4j in the ALL group is less than half
+
+f) The null hypothesis: PH4j of the ALL group does not differ or is equivalent to the PH4j of the AML group
+The alternate hypothesis: PH4j of the ALL group differs from the PH4j of the AML group
+
+```{r Question 1, echo = FALSE, warning = FALSE, comment = NA}
+data(golub)
+# This helps us see which patients are ALL and AML
+gol.fac <- factor(golub.cl,levels = 0:1, labels = c("ALL","AML"))
+# Columns 1:27 are ALL and 27:38 are AML
+H4 <- golub[grep("H4/j",golub.gnames[,2]),1:38]
+H4ALL <- golub[grep("H4/j",golub.gnames[,2]),1:27]
+H4AML <- golub[grep("H4/j",golub.gnames[,2]),27:38]
+APS <- golub[grep("APS Prostate specific antigen",golub.gnames[,2]),1:38]
+APSALL <- golub[grep("APS Prostate specific antigen",golub.gnames[,2]),1:27]
+# One-sided t-test
+a1 <- t.test(H4ALL, mu = -0.9, alternative = "greater")
+cat("a) With a p-value of:", a1$p.value, "we can reject the null hypothesis.")
+# Two Sample t-test
+a2 <- t.test(H4ALL,H4AML)
+cat("b) With a p-value of:", a2$p.value, "we accept the null hypothesis.")
+# Two Sample t-test paired
+a3 <- t.test(H4ALL,APSALL,,paired = TRUE, alternative = "less")
+cat("c) With a p-value of:", a3$p.value, "we can reject the null hypothesis.")
+# Doing Plow for ALL group
+propMatrix = rep(NA, 27)
+for (i in 1:27){
+  propMatrix[i] <- H4ALL[i] < APSALL[i]
+}
+cat("d) The Plow value is",mean(propMatrix),"and so we can see it is greater than half and it agrees with part C as both show that H4/j ALL expression is lower than the APS ALL expression.")
+# Doing PH4j for H4j ALL group
+propMatrix2 = rep(NA, 27)
+for (i in 1:27){
+  propMatrix2[i] <- H4ALL[i] > -0.6
+}
+cat("e) The PH4j value for the ALL group is",mean(propMatrix2),"and so we can see it is less than half.")
+propMatrix3 = rep(NA, 12)
+for (i in 1:12){
+  propMatrix3[i] <- H4AML[i] > -0.6
+}
+cat("f) The PH4j value for the ALL group is",mean(propMatrix2),"and the PH4j value for the AML group is",mean(propMatrix3),"and so we can see that the two proportions differ.")
+```
+### Question 2.
+```{r Question 2, echo = FALSE, warning = FALSE, comment = NA}
+cat("a) We expect", 0.05*2000, "rejections")
+# Binomial test with x set to 89 and alternative parameter set to less
+b2 <- binom.test(x = 89, n = 2000, p = 0.05, alternative="less")
+cat("b) The probability of less than 90 rejections is:", b2$estimate)
+```
+### Question 3.
+```{r Question 3, echo = FALSE, warning = FALSE, comment = NA}
+# To find Type I error, we set the mean equal to the null hypothesis and do Monte Carlo
+xSim <- matrix(rnorm(10000*20, mean=3), ncol=20)
+# Tobs Function given in question with 4 substituted for SD
+tStat <- function(x) (mean(x)-3)/(4/sqrt(length(x)))
+tStatSim <- apply(xSim, 1, tStat)
+# Setting the parameters for range that Tobs will be rejected
+powerSim <- mean(tStatSim > qt(0.3, df = 19) & tStatSim < qt(0.4, df = 19))
+# Calculating final Type 1 rejection rate with 95% CI
+Type1Answer <- powerSim+c(-1,0,1)*qnorm(0.975)*sqrt(powerSim*(1-powerSim)/10000) 
+cat(" a) The Type I Error rate is:", Type1Answer[2], "with its 95% CI as:", Type1Answer[1],Type1Answer[3],"\n Therefore, this test can be considered valid because it is close to the alpha value of 0.1")
+# Repeat Part A except with sample mean = 10 to represent a sample mean that is far away from the actual mean
+xSim2 <- matrix(rnorm(10000*20, mean=10), ncol=20)
+tStat2 <- function(x) (mean(x)-3)/(4/sqrt(length(x)))
+tStatSim2 <- apply(xSim2, 1, tStat2)
+powerSim2 <- mean(tStatSim2 > qt(0.3, df = 19) & tStatSim2 < qt(0.4, df = 19))
+Type1Answer2 <- powerSim2+c(-1,0,1)*qnorm(0.975)*sqrt(powerSim2*(1-powerSim2)/10000) 
+cat("b) This test should not be used in practice because it is only valid when the sample mean is close to the actual mean as in part A. But doing the same monte carlo simulation with a sample mean of 10 to represent a sample mean that is far away from the actual mean, we get", Type1Answer2[2],"\nThis shows that the power goes to 0 as the sample mean goes farther away from the actual mean, and so it would not be particularly useful in real applications.")
+```
+### Question 4.
+```{r Question 4, echo = FALSE, warning = FALSE, comment = NA}
+# Creating empty Vectors
+tVector <- vector()
+pVector <- vector()
+# For loop for two sample t-test to compare each gene expression value in ALL and AML group
+for (i in 1:nrow(golub)) {
+  gene <- as.vector(golub[i,])
+  ALLprofile <- gene[gol.fac=="ALL"]
+  AMLprofile <- gene[gol.fac=="AML"]
+  t <- t.test(ALLprofile,AMLprofile)
+  tVector <- append(tVector, t$statistic)
+  pVector <- append(pVector, t$p.value)
+}
+# Doing FDR and Bonferroni adjustments on the p-values
+pBon <- p.adjust(p = pVector, method = "bonferroni")
+pFDR <- p.adjust(p = pVector, method = "fdr")
+# Adjusting it to be at the 0.05 level
+FDRAnswer <- sum(pFDR < 0.05)
+BonAnswer <- sum(pBon < 0.05)
+# Outputting answers
+cat("a) By using a bonferroni adjustment,",BonAnswer,"genes are differentially expressed.","\n Using a FDR adjustment,",FDRAnswer,"genes are differentially expressed.")
+# Finding the three genes with the strongest differential expression
+names1 <- match((sort(pVector, decreasing = FALSE)[1:3]), pVector)
+cat("b) The top three strongest differentially expressed genes are:",golub.gnames[names1[1],2],",",golub.gnames[names1[2],2],",",golub.gnames[names1[3],2])
+```
+
+### Question 5.
+```{r Question 5, echo = FALSE, warning = FALSE, comment = NA}
+# Formulas from paper
+WaldCI <- function(x, n){
+  p = x/n
+  q = 1-p
+  k = qnorm(0.975)
+  CI = p + c(-1,1)*k*sqrt(p*q/n)
+}
+
+WilsonCI <- function(x, n){
+  p = x/n
+  q = 1-p
+  k = qnorm(0.975)
+  CI = (x + (k^2/2))/(n + k^2) + c(-1,1)*(((k*sqrt(n))/(n+k^2))*sqrt(((p*q) + ((k^2)/(4*n)))))
+}
+
+ACCI <- function(x, n){
+  p = x/n
+  q = 1-p
+  k = qnorm(0.975)
+  x2 = x+(k^2/2)
+  n2 = n + k^2 
+  p2 = x2/n2
+  q2 = 1-p2
+  CI = p2 + c(-1,1)*(((k*(p2*q2))^0.5)*(n2^-0.5))
+}
+
+# Conducting Monte Carlo on each of the formulas
+xSim <- rbinom(10000, size = 40, prob = 0.2)
+WaldSim <- matrix(WaldCI(xSim, n=40),nrow = 2)
+WaldAnswer <- mean((WaldSim[1,] < 0.2) & (WaldSim[2,] > 0.2)) 
+WilsonSim <- matrix(WilsonCI(xSim, n=40),nrow = 2)
+WilsonAnswer <- mean((WilsonSim[1,] < 0.2) & (WilsonSim[2,] > 0.2)) 
+ACSim <- matrix(ACCI(xSim, n=40),nrow = 2)
+ACAnswer <- mean((ACSim[1,] < 0.2) & (ACSim[2,] > 0.2)) 
+
+cat("b) The coverage of the Wald CI is:",WaldAnswer,"\nThe coverage of the Wilson CI is:",WilsonAnswer,"\nThe coverage of the Agresti-Coull CI is:",ACAnswer)
+
+```
+
+
