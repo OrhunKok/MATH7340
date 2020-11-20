@@ -163,3 +163,4 @@ cat("b) The coverage of the Wald CI is:",WaldAnswer,"\nThe coverage of the Wilso
 ```
 
 
+
