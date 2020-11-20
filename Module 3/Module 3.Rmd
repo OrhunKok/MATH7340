@@ -1,0 +1,99 @@
+---
+title: "Module 3"
+author: "Orhun Kok"
+date: "9/25/2020"
+output: html_document
+---
+
+### Question 1.
+
+The answer is B because a range is given, and therefore it is a continous random variable. This narrows the answers down to the integrals. From here, we see that the function is for x > 1 and given the range of 0 < x < 4, the only choice that fits all of that is B. 
+
+### Question 2.
+```{r Question 2, echo = FALSE}
+# P(X = 1) - Simple subsitution of 1 for variable x
+a <- (2^1/(factorial(1))*exp(-2))
+paste(a,"is P(X = 1)")
+# P(-2<X<4) - Does not include P(4) and lower limit can't go to -2 because x is a defined list
+b1 <- (2^0/(factorial(0))*exp(-2))
+b2 <- (2^1/(factorial(1))*exp(-2))
+b3 <- (2^2/(factorial(2))*exp(-2))
+b4 <- (2^3/(factorial(3))*exp(-2))
+b <- sum(b1,b2,b3,b4)
+paste(b, " is P(-2<X<4)")
+```
+
+### Question 3.
+
+The n value in a binomial represents the number of children in this case, and the p value represents the probability of albinism. Therefore, n = 3 and p = 0.25.
+
+### Question 4.
+```{r Question 4, echo = FALSE}
+# P(Y<= 2) = P(Y = 0) P(Y = 1) + P(Y = 2)
+set.Y <- c(0,1,2)
+c <- sum(dbinom(set.Y, size = 3, p = 0.25))
+paste(c, "is P(Y <= 2)")
+#E(Y) = np
+paste(3*0.25, "is E(Y)")
+#Var(Y) = np*(1-p)
+paste((3*0.25)*(1-0.25), "is Var(Y)")
+```
+### Question 5.
+```{r Question 5, echo = FALSE}
+# P(1 < X < 4)
+X <- integrate(function(X) dchisq(X, df = 3), lower = 1, upper = 4)
+paste(X[1],"with absolute error",X[2], "is P(1<X<4)")
+# E(X) equals the degrees of freedom for chi-square
+paste(3,"is E(X)")
+# Var(X) equals twice the degrees of freedom for chi-square
+paste(6,"is Var(X)")
+# Monte Carlo Simulation with sample size of 100,000 and comparing with original
+Monte <- rchisq(n = 100000, df = 3)
+Monte <- mean((1 < Monte) & (Monte < 4))
+paste(Monte,"is the Monte Carlo estimate, compared to the", X[1], "answer from above")
+```
+
+### Question 6.
+```{r Question 6, echo = FALSE}
+# E(Y) = 4(E(X))-10 according to linear transformation rules
+meanY <- (4*5) - 10
+paste(meanY,"is E(Y)")
+# Var(Y) = Var(4X-10) = a^2(Var((X))) = 16(Var(X))
+varY <- 16*10
+paste(varY,"is Var(Y)")
+# Degree of freedom = mean, Variance = 2 * degrees of freedom = 20. Therefore, 20 != varY
+print("Y does not follow a chi square distrubution with df = 10 because while the mean does equal 10, the variances do not match")
+```
+
+### Question 7.
+```{r Question 7, echo = FALSE}
+# P(1<X<1.6) = P(X>1.6) - P(X<1)
+d <- pnorm(1.6,mean = 1.6, sd = 0.4) - pnorm(1,mean = 1.6, sd = 0.4)
+paste(d,"is the probability that a randomly chosen patient has Zyxin gene expression values between 1 and 1.6")
+# Monte Carlo Simulation with sample size of 500,000
+Monte2 <- rnorm(n = 500000, mean = 1, sd = 0.4)
+Monte2 <- mean((1 < Monte2) & (Monte2 < 1.6))
+paste(Monte2,"is the Monte Carlo estimate")
+# Exactly 2 out of 5 patients having Zyxin expression between 1 and 1.6
+e <- dbinom(2,size = 5, prob = d)
+paste(e," is the probability that exactly 2 out of 5 patients have Zyxin expression between 1 and 1.6 ")
+```
+
+### Question 8.
+```{r Question 8, echo = FALSE}
+# Integration of X~F and Y~F with lower limit at 0 and upper at Inf as per instructions for mean calculation
+integralmeanXF <- integrate(function(x) x*df(x,df1 = 2, df2 = 5), lower = 0, upper = Inf)
+integralmeanYF <- integrate(function(y) y*df(y,df1 = 10, df2 = 5), lower = 0, upper = Inf)
+# Integration of X~F and Y~F with lower limit -Inf and upper at Inf for variance calculation
+integralvarianceXF <- integrate((function(c) ((c - integralmeanXF$value)^2)*df(c,df1 = 2, df2 = 5)), lower = -Inf, upper = Inf)
+integralvarianceYF <- integrate((function(k) ((k - integralmeanYF$value)^2)*df(k,df1 = 10, df2 = 5)), lower = -Inf, upper = Inf)
+# Mean = n/n-2 | Variance = (2n^2(m+n-2))/(m(n-2)^2)(n-4) for n > 4. Formulas found in table 3.4.1
+meanXF <- 5/(5-2)
+varianceXF <- (((2*((5)^2)))*(2+5-2))/((2*(5-2)^2)*(5-4))
+paste(meanXF, "is the mean of X~F(m=2,n=5) and", varianceXF, "is the variance of X~F(m=2,n=5)")
+meanYF <- 5/(5-2)
+varianceYF <- (((2*((5)^2)))*(10+5-2))/((10*(5-2)^2)*(5-4))
+paste(meanYF, "is the mean of Y~F(m=10,n=5) and", varianceYF, "is the variance of Y~F(m=10,n=5)")
+# Values from integration when compared to manual calculation are the same
+paste(integralmeanXF$value,"and",integralmeanYF$value,"are the mean values from part A for X~F and Y~F respectively, and", integralvarianceXF$value,"and", integralvarianceYF$value, "are the variance values from part A for X~F and Y~F respectively. When comparing the values from Part A and B, you can see they match.")
+```
