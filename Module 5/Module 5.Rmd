@@ -1,0 +1,144 @@
+---
+title: "Module 5"
+author: "Orhun"
+date: "10/9/2020"
+output: html_document
+---
+
+### Question 1.
+a) Taking the derivative of the product of the individual likelihoods and setting it equal to 0 gets us the MLE. Therefore, the MLE is lambda = n/(sum(x1+x2...xn)). The MoM estimator for exponential distributions is lambda = 1/sample mean. Sample mean is equal to (1/n)*(sum(x1+x2....xn)).
+
+Therefore, this turns the MoM estimator into lambda = (1/(1/n))*(sum(x1+x2....xn)) therefore, lambda =  n/(sum(x1+x2....xn)).   Therefore, MoM estimator equals the MLE in this case
+
+```{r Question 1, echo = FALSE, warning = FALSE, comment = NA}
+# Analytic Formula is lambda = n/(sum(x1+x2...xn))
+MLE = 6/sum(c(1.636, 0.374, 0.534, 3.015, 0.932, 0.179))
+# Numerical Optimization
+nloglik <- function(paras) {
+    lambda <- paras [1]
+    -sum(log(dexp(c(1.636, 0.374, 0.534, 3.015, 0.932, 0.179), rate = lambda)))
+}
+NOexp <- optim(par= 2, nloglik)$par
+cat("B) The MLE of this data is: ", MLE, "and the numerical optimization is: ", NOexp)
+```
+
+### Question 2.
+a) For chi-square distributions, the MoM estimator for is m = sample mean according to module notes. Therefore, for this question m = 100.8.
+```{r Question 2, echo = FALSE, warning = FALSE, comment = NA}
+# qnorm to get 90 percent CI value from normal. We can assume data is normally distrubuted due to large n
+# 100.8 + z0.10*SE is the CI and 0.1 is used in qnorm because we want one-sided CI
+Chi1 <- 100.8 + (qnorm(0.1, mean = 0, sd = 1))*(12.4/sqrt(53))
+cat("B) The one sided lower 90% CI of m is:",Chi1,", Inf")
+```
+```{r Question 3 setup, include = FALSE}
+# Load necessary packages
+library(BiocManager)
+library(multtest)
+```
+### Question 3.
+```{r Question 3, echo = FALSE, warning = FALSE, comment = NA}
+# Open Data and find Zyxin
+data(golub)
+# This helps us see which patients are ALL and AML
+gol.fac <- factor(golub.cl,levels = 0:1, labels = c("ALL","AML"))
+# Columns 1:27 are ALL and 27:38 are AML
+ZyxinALL <- golub[grep("Zyxin",golub.gnames[,2]),1:27]
+# Set up Bootstrap for ZyxinALL mean CI
+n <- length(ZyxinALL)
+nBoot <- 1000 
+bootXBar <- rep(NA, nBoot) 
+for (i in 1:nBoot) {
+  dataStar <- ZyxinALL[sample(1:n,replace=TRUE)]
+  bootXBar[i] <- mean(dataStar)
+}
+a1 <- quantile(bootXBar,c(0.025,0.975))
+# Repeat for ZyxinAML mean CI
+ZyxinAML <- golub[grep("Zyxin",golub.gnames[,2]),27:38]
+n2 <- length(ZyxinAML)
+bootXBar2 <- rep(NA, nBoot) 
+for (i in 1:nBoot) {
+  dataStar2 <- ZyxinAML[sample(1:n2,replace=TRUE)]
+  bootXBar2[i] <- mean(dataStar2)
+}
+a2 <- quantile(bootXBar2,c(0.025,0.975))
+# Repeat for ZyxinAML variance CI
+bootXBar3 <- rep(NA, nBoot) 
+for (i in 1:nBoot) {
+  dataStar3 <- ZyxinAML[sample(1:n2,replace=TRUE)]
+  bootXBar3[i] <- sd(dataStar3)
+}
+a3 <- quantile(bootXBar3,c(0.025,0.975))^2
+# Repeat for ZyxinALL variance CI
+bootXBar4 <- rep(NA, nBoot) 
+for (i in 1:nBoot) {
+  dataStar4 <- ZyxinALL[sample(1:n,replace=TRUE)]
+  bootXBar4[i] <- sd(dataStar4)
+}
+a4 <- quantile(bootXBar4,c(0.025,0.975))^2
+cat("The bootstrap mean 95% CI of the Zyxin ALL group is:",a1)
+cat("The bootstrap mean 95% CI of the Zyxin AML group is:",a2)
+cat("The bootstrap variance 95% CI of the Zyxin AML group is:",a4)
+cat("The bootstrap variance 95% CI of the Zyxin ALL group is:",a3)
+```
+```{r Question 3b, include = FALSE, warning = FALSE, comment = NA}
+# Histograms can help determine what distribution to use
+hist(ZyxinALL)
+hist(ZyxinAML)
+```
+```{r Question 3c, echo = FALSE, warning = FALSE, comment = NA}
+# B) t-interval is used because histogram is bell shaped and it is used for mean, chisq is used for variance
+a5 <- mean(ZyxinALL)+qt(c(0.025,0.975),df=n-1)*sd(ZyxinALL)/sqrt(n)
+a6 <- mean(ZyxinAML)+qt(c(0.025,0.975),df=n-1)*sd(ZyxinAML)/sqrt(n)
+a7 <- (sd(ZyxinALL)+qchisq(c(0.025,0.975),df=n-1)*sd(ZyxinALL)/sqrt(n))^2
+a8 <- (sd(ZyxinAML)+qchisq(c(0.025,0.975),df=n-1)*sd(ZyxinAML)/sqrt(n))^2
+cat("The parametric mean 95% CI of the Zyxin ALL group is:",a5)
+cat("The parametric mean 95% CI of the Zyxin AML group is:",a6)
+cat("The parametric variance 95% CI of the Zyxin AML group is:",a8)
+cat("The parametric variance 95% CI of the Zyxin ALL group is:",a7)
+# C) Median
+# ZyxinALL median CI
+bootXBar5 <- rep(NA, nBoot)
+for (i in 1:nBoot) {
+  dataStar5 <- ZyxinALL[sample(1:n,replace=TRUE)]
+  bootXBar5[i] <- median(dataStar5)
+}
+a9 <- quantile(bootXBar5,c(0.025,0.975))
+cat("The median 95% CI of the Zyxin ALL group is:",a9)
+# ZyxinAML median CI
+bootXBar6 <- rep(NA, nBoot)
+for (i in 1:nBoot) {
+  dataStar6 <- ZyxinAML[sample(1:n2,replace=TRUE)]
+  bootXBar6[i] <- median(dataStar6)
+}
+a10 <- quantile(bootXBar6,c(0.025,0.975))
+cat("The median 95% CI of the Zyxin AML group is:",a10)
+```
+d) The Zyxin gene expression CI's vary by ALL and AML group. It appears that the ALL group has a narrower CI in all cases except the median CI and the AML group has a wider CI in all cases except for the median CI where it is narrower than the AML group.
+ 
+
+### Question 4.
+```{r Question 4, echo = FALSE, warning = FALSE, comment = NA}
+# This function will help us test the different lambda values
+valuesMean = rep(NA, 1000)
+valuesVariance = rep(NA, 1000)
+fun <- function(n, lambda){
+  for (i in 1:1000){
+    trial <- rpois(50,lambda = lambda)
+    # Mean = Variance for Poisson distribution so s^2 = sample mean
+    meanTrial <- mean(trial)
+    lowerMeanCI <- meanTrial + qt(0.05,49)*(sqrt(lambda/50))
+    upperMeanCI <- meanTrial + qt(0.95,49)*(sqrt(lambda/50))
+    lowerVarianceCI <- (49/qchisq(0.95,49))*meanTrial
+    upperVarianceCI <- (49/qchisq(0.05,49))*meanTrial
+    valuesMean[i] <- lowerMeanCI <= lambda & lambda <= upperMeanCI
+    valuesVariance[i] <- lowerVarianceCI <= lambda & lambda <= upperVarianceCI
+  }
+  cat("The coverage probability of the mean CI is:",mean(valuesMean))
+  cat("\nThe coverage probability of the variance CI is:",mean(valuesVariance))
+}
+# Part B
+cat(fun(1000,0.1),"\nFor lambda = 0.1")
+cat(fun(1000,1),"\nFor lambda = 1")
+cat(fun(1000,10),"\nFor lambda = 10")
+```
+c) Out of the two CI formulas, I would recommend that the variance CI formula is used for lambda values close to or greater than 1. For lambda values that are significantly less than 1 I would recommend the mean CI formula. This is because of the pattern in part b, as the lambda value increases, the coverage probability of the variance CI increases as well and is basically 100% for lambda values greater than 1. The mean CI formula gives a stable coverage probability that does not really change with the lambda value. 
