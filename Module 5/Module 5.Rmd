@@ -142,3 +142,4 @@ cat(fun(1000,1),"\nFor lambda = 1")
 cat(fun(1000,10),"\nFor lambda = 10")
 ```
 c) Out of the two CI formulas, I would recommend that the variance CI formula is used for lambda values close to or greater than 1. For lambda values that are significantly less than 1 I would recommend the mean CI formula. This is because of the pattern in part b, as the lambda value increases, the coverage probability of the variance CI increases as well and is basically 100% for lambda values greater than 1. The mean CI formula gives a stable coverage probability that does not really change with the lambda value. 
+
