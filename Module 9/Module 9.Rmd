@@ -1,0 +1,100 @@
+---
+title: "Module 9"
+author: "Orhun"
+date: "11/6/2020"
+output: html_document
+---
+
+```{r Setup, include=FALSE}
+# Load necessary packages
+library(BiocManager)
+library(multtest)
+data(golub) 
+data(stackloss)
+```
+
+### Question 1.
+```{r Question 1, echo = FALSE, comment = NULL, warning = FALSE}
+# Finding the genes of interest and doing a correlation test between the two genes
+GRO2 <- golub[grep("GRO2",golub.gnames[,2]),]
+GRO3 <- golub[grep("GRO3",golub.gnames[,2]),]
+a1 <- cor.test(GRO2,GRO3, conf.level = 0.90)
+cat("a) The correlation between GRO2 and GRO3 is",a1$estimate)
+cat("b) The parametric 90% CI is",a1$conf.int)
+
+# Setting up bootstrap
+nboot <- 2000
+boot.cor <- matrix(0,nrow=nboot,ncol=1)
+data <- cbind(GRO2,GRO3)
+# Conducting bootstrap
+for (i in 1:nboot){
+  dat.star<-data[sample(1:nrow(data), replace=TRUE), ]
+  boot.cor[i,] <- cor(dat.star[,1], dat.star[,2])
+}
+cat("c) The 90% CI from the bootstrap is",quantile(boot.cor[,1], c(0.05,0.95)))
+```
+
+### Question 2.
+```{r Question 2, echo = FALSE, comment = NULL, warning = FALSE}
+# Creating empty Vector and finding Zyxin
+corVector <- vector()
+Zyxin <- golub[grep("Zyxin",golub.gnames[,2]),]
+# For loop that finds correlation between every gene and Zyxin 
+for (i in 1:nrow(golub)) {
+  gene <- as.vector(golub[i,])
+  geneCor <- cor.test(Zyxin,gene)
+  corVector <- append(corVector, geneCor$estimate)
+}
+cat("a)",sum(corVector < -0.5),"genes have correlation values less than negative 0.5")
+
+# Finding the names of the top five genes
+names <- order(corVector, decreasing = FALSE)
+cat("b) The top five genes that are most negatively correlated are:",golub.gnames[names[1],2],",",golub.gnames[names[2],2],",",golub.gnames[names[3],2],",",golub.gnames[names[4],2],",",golub.gnames[names[5],2])
+
+# Creating empty Vector
+pVector <- vector()
+# For loop that does cor.test between every gene and Zyxin 
+for (i in 1:nrow(golub)) {
+  gene2 <- as.vector(golub[i,])
+  geneCor2 <- cor.test(Zyxin,gene2, alternative = "less")
+  pVector <- append(pVector, geneCor2$p.value)
+}
+# Doing FDR adjustments on the p-values
+pFDR <- p.adjust(p = pVector, method = "fdr")
+# Adjusting it to be at the 0.05 level
+FDRAnswer <- sum(pFDR < 0.05)
+cat("c)",FDRAnswer,"genes are negatively correlated with the Zyxin gene.")
+```
+
+### Question 3.
+```{r Question 3, echo = FALSE, comment = NULL, warning = FALSE}
+# Linear regression model that gives us the desired information when input into the summary function
+reg.fit <- lm(GRO3 ~ GRO2)
+reg.fitSummary <- summary(reg.fit)
+cat("a) With a p-value of",reg.fitSummary$coefficients[7],"and",reg.fitSummary$coefficients[8],"for the intercept and slope respectively, we can say there is a statistically significant relationship between the two genes.","\nThe proportion of GRO3 expression’s variation that can be explained by the regression on the expression of GRO2 is",reg.fitSummary$r.squared)
+# Confidence interval function gives us slope value at desired alpha value
+cat("b) The slope parameter at alpha = 0.05 level is less than 0.5 because it is",confint(reg.fit, level = 0.9)[2])
+# Generating a prediction interval when GRO2 expression is 0
+pInt <- predict(reg.fit, newdata = data.frame(GRO2 = 0), interval="prediction", level = 0.8) 
+cat("c) The 80% prediction interval for GRO3 when GRO2 = 0 is:",pInt[2:3])
+# Shapiro test and qqplot and residuals vs fitted plot to test assumptions of linear regression
+regShapiro <- shapiro.test(resid(reg.fit))
+qqnorm(resid(reg.fit))
+qqline(resid(reg.fit))
+plot(reg.fit,which=1)
+cat("d) The results of the Shapiro-Wilks test is",regShapiro$p.value,"therefore, the data is normally distributed. This is further confirmed by the QQ-plot where we can see deviation in the tails, but not enough to be statistically significant according to the Shapiro-Wilks test.\nBased on the Residuals VS. Fitted Values plot, we can also see that there is a non-linear pattern in the means. Therefore, taking all this into consideration, we cannot trust the variances in the data points. A logarithm transformation is recommended to fix this problem.")
+```
+
+### Question 4.
+```{r Question 4, echo = FALSE, comment = NULL, warning = FALSE}
+# Using a multiple linear regression model to find the necessary information
+stackData <- as.data.frame(stackloss[,c('Air.Flow', 'Water.Temp', 'Acid.Conc.', 'stack.loss')])
+stack.fit <- lm(stack.loss~Air.Flow+Water.Temp+Acid.Conc., data=stackData) 
+stack.fitSum <- summary(stack.fit)
+cat("a) The fitted regression equation is: -39.9197 + 0.7156Air.Flow + 1.2953Water.Temp - 0.1521Acid.Conc.")
+cat("b) Based on the p-values:",stack.fitSum$coefficients[13:16],"all of the variables have a statistically significant effect on stack.loss with the exception of Acid.Conc.\nThe proportion of the variation in stack.loss that is explained by the regression on the other three variables is",stack.fitSum$r.squared)
+# Using the predict function and modifying the interval parameter to get CI and PI
+stackConf <- predict(stack.fit, newdata = data.frame(Air.Flow = 60, Water.Temp = 20, Acid.Conc. = 90), interval="confidence", level = 0.9) 
+stackPred <- predict(stack.fit, newdata = data.frame(Air.Flow = 60, Water.Temp = 20, Acid.Conc. = 90), interval="prediction", level = 0.9) 
+cat("c) The 90% CI for stack.loss is",stackConf[2:3],"\nThe 90% prediction interval for stack.loss is",stackPred[2:3])
+```
