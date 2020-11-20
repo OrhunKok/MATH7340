@@ -97,3 +97,4 @@ paste(meanYF, "is the mean of Y~F(m=10,n=5) and", varianceYF, "is the variance o
 # Values from integration when compared to manual calculation are the same
 paste(integralmeanXF$value,"and",integralmeanYF$value,"are the mean values from part A for X~F and Y~F respectively, and", integralvarianceXF$value,"and", integralvarianceYF$value, "are the variance values from part A for X~F and Y~F respectively. When comparing the values from Part A and B, you can see they match.")
 ```
+
