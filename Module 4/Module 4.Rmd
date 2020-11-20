@@ -1,0 +1,95 @@
+---
+title: "Module 4"
+author: "Orhun"
+date: "10/02/2020"
+output: html_document
+---
+
+### Question 1. 
+
+a) This is a CLT scenario therefore, the sample mean = 5 and the sample standard deviation = 3/sqrt(5)
+```{r Question 1, echo = FALSE, comment = NA}
+# We can find the probaility that the sample is 2 < X < 5.1 with the code below.
+# However this is only an approximation and a larger sample size should be considered for better approximation.
+Q1 <- pnorm(5.1,mean = 5,sd = 3/sqrt(5))-pnorm(2,mean = 3,sd = 3/sqrt(5))
+cat("B)", Q1)
+```
+### Question 2.
+```{r Question 2, echo = FALSE, comment = NA}
+# For binomials, mean = np, variance = np(1-p)
+# Sample size = 100, length = 20, prob = 0.7. Therefore, mean = 20*0.7 = 14, variance = 20*0.7*(1-0.7) = 4.2
+# According to CLT the distribution will be roughly normal with a sample size of 100
+mRNA <- pnorm(20,mean=14,sd=sqrt(4.2)/sqrt(100)) - pnorm(15,mean=14,sd=sqrt(4.2)/sqrt(100))
+cat("The probability that Y is greater than 15 is: ", mRNA*100,"%")
+```
+
+### Question 3.
+```{r Question 3, echo = FALSE, comment = NA, warning = FALSE}
+# Load necessary package
+library(mvtnorm)
+# Setting up the vector and matrix with given information
+meanVector <- c(9,10)
+covarianceMatrix <- matrix(c(3^2,2,2,5^2), nrow = 2)
+# Multivariate normal distrubution calculation with limits set to range we are NOT interested in, hence subracting it from 1.
+theoreticalCalculation <- 1 - pmvnorm(lower = -Inf, upper = 9.5, mean = meanVector, sigma = covarianceMatrix)
+cat("The theoretical probability that the sample mean of Y is 0.5 greater than the sample mean of X is:", theoreticalCalculation*100,"%")
+
+# Monte Carlo Simulation
+# Random sample generation with n = 50 repeted 10000 times
+nsim = 100000
+values = rep(NA, nsim)
+for (i in 1:nsim){
+  geneMC <- rmvnorm(50, mean = meanVector, sigma = covarianceMatrix)
+  meanGeneMC <- apply(geneMC,2,mean)
+  Xmean <- meanGeneMC[1]
+  Ymean <- meanGeneMC[2]
+  values[i] = Xmean + 0.5 < Ymean
+}
+# Finding the mean of the TRUE boolean values in the array
+monteCarloAnswer <- mean(values)
+# Confidence Intervals calculated with formula in module notes
+confidenceInterval <- 1.96*sqrt(var(meanGeneMC)/1000)
+cat("The simulated probability that the sample mean of Y is 0.5 greater than the sample mean of X is:", monteCarloAnswer*100,"%", "with a confidence interval of plus/minus:", confidenceInterval*100,"%")
+```
+
+### Question 4.
+```{r Question 4, echo = FALSE, comment = NA}
+# Conduct a monte carlo simulation for each random variable with the given information and a sample size of 100,000
+X1 <- rchisq(100000, df = 10)
+X2 <- rgamma(100000, 1, scale = 0.5)
+X3 <- rt(100000, df = 3)
+# Define Y as the formula given
+Y <- (sqrt(X1)*X2) + (4*((X3)^2))
+# Output mean of Y
+cat("The mean of Y is:", mean(Y))
+```
+
+### Question 5.
+```{r Question 5, echo = FALSE, comment = NA}
+# an and bn from question with n = 1000 sample size
+an <- sqrt(2*log(1000)) - 0.5*(log(log(1000))+log(4*pi))*(2*log(1000))^(-1/2)
+bn <- (2*log(1000))^(-1/2)
+# Taking the max from 1000 standard normal distrubutions
+values2 = rep(NA, 1000)
+for (i in 1:1000){
+  maximums <- matrix(data = rnorm(1000, mean = 0, sd = 1))
+  maxOfDistrubution <- max(maximums)
+  values2[i] = maxOfDistrubution
+}
+maxOfDistrubution <- values2
+# Subtraction an and dividing by bn
+normalizedMaximums <- (maxOfDistrubution - an)/bn 
+# Setting up parameters for a standard normal distribution and the Pevner function
+x <- seq(range(normalizedMaximums)[1],range(normalizedMaximums)[2],length=1000)
+y <- dnorm(x,mean=0,sd=1)
+extremeFunction <- function(x) exp(-x)*(exp(-exp(-x)))
+```
+```{r Question 5b, echo = FALSE, include = FALSE, comment = NA}
+# Have to enter this separately since R markdown plot the variable
+z <- curve(expr = extremeFunction, from = range(normalizedMaximums)[1], to = range(normalizedMaximums)[2])
+```
+```{r Question 5c, echo = FALSE, comment = NA}
+# Plotting the extreme function, the normalizedMaximums, and a standard normal plot on top of each other
+plot(density(normalizedMaximums), ylim = c(0,0.5), xlab = "X Value", ylab = "Density", main = "Density of The Three Functions Graphed") + lines(x,y, lwd = 2, col = "red") + lines(z, col = "green")
+```
+The curve in red represents a standard normal distribution, the green represents the Pevner extreme distribution function, and the black line is the one that was generated from the maximums of 1000 standard normal distribution. We can see that the red curve is not skewed and is symettrical, because it is just a regular normal. We can see the green curve has more density near the extreme, and we can see our black curve is similar to the green curve in the sense it also has more density near the extreme. The green and black curve should be similar to each other since the green curve is the theoretical and our black curve is a simulation of the concept. 
