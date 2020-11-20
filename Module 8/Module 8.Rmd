@@ -1,0 +1,108 @@
+---
+title: "Module 8"
+author: "Orhun"
+date: "10/30/2020"
+output: html_document
+---
+
+```{r Setup, include = FALSE}
+# Load necessary packages
+library(BiocManager)
+library(multtest)
+library(ALL)
+library(lmtest)
+data(ALL) 
+```
+
+
+### Question 1.
+```{r Question 1, echo = FALSE, warning = FALSE, comment = NULL}
+# One-way ANOVA for five groups
+ALLB5 <- ALL[,ALL$BT%in%c("B","B1","B2","B3","B4")]
+a <- exprs(ALLB5)["109_at",]
+a2 <- anova(lm(a ~ ALLB5$BT))
+a2 <- a2$`Pr(>F)`
+a2 <- a2[1]
+cat("a) With a p-value of",a2,"we can conclude that disease stage affects the mean gene expression.")
+
+# No intercept method used because we want to find the group mean and not difference
+a3 <- summary(lm(a ~ ALLB5$BT -1))
+a4 <- a3$coefficients[3,1]
+cat("b) The mean gene expression among B3 patients is",a4)
+
+
+#Part C and D can be answered with pairwise test
+pairwise.t.test(a, ALLB5$BT,p.adjust.method='fdr')
+cat("c) None of the group's mean expression value is different from group B because none of the p-values are small enough to reject the null hypotheses.\nd) The group mean of B2 is not equal to B4.")
+
+
+# Testing the assumptions of normality and equal variances using appropriate tests
+assumption3 <- shapiro.test(residuals(lm(a ~ ALLB5$BT))) 
+assumption4 <- bptest(lm(a ~ ALLB5$BT), studentize = FALSE) 
+cat("e) With a p-value of",assumption3$p.value,"the normality assumption holds.","\nWith a p-value of",assumption4$p.value,"the assumption of homoscedasticity holds.\nSince no assumptions are violated, more robust tests are not needed.")
+
+
+```
+
+
+
+### Question 2.
+```{r Question 2, echo = FALSE, warning = FALSE, comment = NULL}
+# Setting up BT groups of focus
+ALLB4 <- ALL[,ALL$BT%in%c("B","B1","B2","B3","B4")]
+# Kruskal test on every gene
+pVector <- apply(exprs(ALLB4),1,function(x) kruskal.test(x ~ ALLB4$BT)$p.value)
+
+# Doing FDR adjustments on the p-values
+pFDR <- p.adjust(p = pVector, method = "fdr")
+# Adjusting it to be at the 0.05 level
+FDRAnswer <- sum(pFDR < 0.05)
+cat("a)",FDRAnswer,"genes are expressed differently in some of the groups.")
+
+pVectorNames <- names(sort(pVector, decreasing = FALSE)[1:5])
+cat("b) The probe names for the genes with the five smallest p-values is:",pVectorNames)
+```
+
+
+
+### Question 3.
+```{r Question 3, echo = FALSE, warning = FALSE, comment = NULL}
+# Setting up parameters for two-way ANOVA
+ALLB4SEX <- ALL[,which(ALL$BT%in%c("B1","B2","B3","B4")& ALL$sex%in%c("M","F"))]
+b <- exprs(ALLB4SEX)["38555_at",]
+Bcell <- ALLB4SEX$BT
+Sex <- ALLB4SEX$sex
+
+# Two-way anova to see how the factors affect gene expression and the interaction between them
+B4ANOVA <- anova(lm(b~ Bcell*Sex))
+#Outputting results of ANOVA
+cat("a) With a p-value of",B4ANOVA$`Pr(>F)`[1],"we can see that the BT factor affects gene expression.","\nWith a p-value of",B4ANOVA$`Pr(>F)`[2],"we can see that sex does not affect gene expression.","\nWith a p-value of",B4ANOVA$`Pr(>F)`[3],"we can see that there is no significant interaction between the two factors.")
+
+# Testing the assumptions of normality and equal variances using appropriate tests
+assumption1 <- shapiro.test(residuals(lm(b ~ ALLB4SEX$BT))) 
+assumption2 <- bptest(lm(b ~ ALLB4SEX$BT), studentize = FALSE) 
+cat("b) With a p-value of",assumption1$p.value,"the normality assumption does not hold.","\nWith a p-value of",assumption2$p.value,"the assumption of homoscedasticity holds.")
+```
+
+
+### Question 4.
+```{r Question 4, echo = FALSE, warning = FALSE, comment = NULL}
+# Setting up the parameters for permutation test
+ALLB123 <-  ALL[,ALL$BT%in%c("B1","B2","B3")]
+c <- exprs(ALLB123)["1242_at",]
+group <- ALLB123$BT[,drop=T]
+groupMeans <- by(c,group,mean)
+# Setting up the test statistic and conducting the permutation test
+n <- length(groupMeans)
+T.obs <- (sum((groupMeans - (sum(groupMeans)/n))^2))/(n-1)
+n.perm <- 2000
+T.perm <- rep(NA, n.perm)
+for(i in 1:n.perm) {
+data.perm <- sample(c, length(c), replace=F)
+groupMeans <- by(data.perm,group,mean)
+T.perm[i] <- (sum((groupMeans - (sum(groupMeans)/n))^2))/(n-1)
+}
+# Comparing permutation test with test statistic
+permOutput <- mean(T.perm >= T.obs)
+cat("The p-value is",permOutput,"therefore, we can say that we accept the null hypothesis of the sample means being equal to the mean.")
+```
