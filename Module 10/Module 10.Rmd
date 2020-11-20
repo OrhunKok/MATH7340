@@ -106,3 +106,4 @@ fit1 <- eBayes(fit1)
 cat("c) There are",dim(topTable(fit1, number=Inf,adjust.method="fdr", p.value = 0.01))[1],"differentially expressed genes.")
 print(topTable(fit1, number=5,adjust.method="fdr", p.value = 0.01), digits=4) 
 ```
+
