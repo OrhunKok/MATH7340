@@ -1,0 +1,115 @@
+---
+title: "Module 7"
+author: "Orhun"
+date: "10/23/2020"
+output: html_document
+---
+
+```{r Setup, include = FALSE}
+# Load necessary packages
+library(BiocManager)
+library(multtest)
+data(golub)
+# This helps us see which patients are ALL and AML
+gol.fac <- factor(golub.cl,levels = 0:1, labels = c("ALL","AML"))
+```
+
+### Question 1.
+```{r Question 1, echo = FALSE, warning = FALSE, comment = NULL}
+# Creating empty Vectors
+pVector <- vector()
+# For loop for two sample wilcox test to compare each gene expression value in ALL and AML group
+for (i in 1:nrow(golub)) {
+  gene <- as.vector(golub[i,])
+  ALLprofile <- gene[gol.fac=="ALL"]
+  AMLprofile <- gene[gol.fac=="AML"]
+  # Unpaired test because of different sample size
+  t <-  wilcox.test(x= ALLprofile, y= AMLprofile, paired = FALSE, alternative="two.sided")
+  pVector <- append(pVector, t$p.value)
+}
+# Doing FDR adjustments on the p-values
+pFDR <- p.adjust(p = pVector, method = "fdr")
+# Adjusting it to be at the 0.05 level
+FDRAnswer <- sum(pFDR < 0.05)
+cat("a)",FDRAnswer,"genes have mean expression higher in the ALL group.")
+
+# Part B
+meanVector <- vector()
+# For loop for finding mean differences between ALL group and AML group for each gene
+for (i in 1:nrow(golub)) {
+  gene2 <- as.vector(golub[i,])
+  ALLprofile2 <- mean(gene2[gol.fac=="ALL"])
+  AMLprofile2 <- mean(gene2[gol.fac=="AML"])
+  meanVector <- append(meanVector,  ALLprofile2 - AMLprofile2)
+}
+meanVector <- order(meanVector, decreasing = TRUE)
+# Finding the three genes with the strongest differential expression
+names1 <- order(pVector, decreasing = FALSE)
+cat("b) The top three strongest differentially expressed genes are:",golub.gnames[names1[1],2],",",golub.gnames[names1[2],2],",",golub.gnames[names1[3],2],
+    "\n\nThe top three genes with the largest mean differences in their ALL and AML group are:",golub.gnames[meanVector[1],2],",",golub.gnames[meanVector[2],2],",",golub.gnames[meanVector[3],2],
+    "\n\nTherefore, we can see that the three genes for the two processes are not the same.")
+```
+
+### Question 2.
+```{r Question 2, echo = FALSE, warning = FALSE, comment = NULL}
+# Creating empty Vectors
+tVector2 <- vector()
+pVector2 <- vector()
+# For loop for Shapiro-Wilks test 
+for (i in 1:nrow(golub)) {
+  gene2 <- as.vector(golub[i,])
+  AMLprofile2 <- gene2[gol.fac=="AML"]
+  t2 <- shapiro.test(AMLprofile2)
+  tVector2 <- append(tVector2, t2$statistic)
+  pVector2 <- append(pVector2, t2$p.value)
+}
+# Doing FDR adjustments on the p-values
+pFDR2 <- p.adjust(p = pVector2, method = "fdr")
+# Adjusting it to be at the 0.05 level
+FDRAnswer2 <- sum(pFDR2 < 0.05)
+# Outputting Answer
+cat(3051 - FDRAnswer2,"genes do not pass the test at the 0.05 FDR level.")
+```
+
+### Question 3.
+```{r Question 3, echo = FALSE, warning = FALSE, comment = NULL}
+# Finding the genes in the data
+HOXALL <- golub[grep("HOXA9 Homeo box A9",golub.gnames[,2]),1:27]
+CDALL <- golub[grep("CD33",golub.gnames[,2]),1:27]
+# Conducting paired Wilcox Test because of same sample size
+ALLAnswer <- wilcox.test (HOXALL, CDALL, paired=T, alternative="two.sided")
+cat("With a p-value of",ALLAnswer$p.value,"we can conclude that the two genes in the ALL group express differently.")
+```
+
+### Question 4.
+```{r Question 4, echo = FALSE, warning = FALSE, comment = NULL}
+# Gettting Data
+data(UCBAdmissions)
+cat("The p-value of the Fisher Exact Test for departments A-F respectively are below:")
+# For loop that does fisher test for each department
+for (i in 1:6){
+  ratio <- fisher.test(UCBAdmissions[,,i])
+  print(ratio$p.value)
+}
+cat("From this we can conclude that admission decision and gender are only independent in department A but not the others.")
+```
+
+### Question 5.
+```{r Question 5, echo = FALSE, warning = FALSE, comment = NULL}
+# CD33 is row 808
+data <- golub[808,]
+n <- length(data)
+# Setting up T.obs with variance ratio
+T.obs <- var(data[gol.fac=="ALL"])/var(data[gol.fac=="AML"])
+n.perm <- 2000
+T.perm <- rep(NA, n.perm)
+# For loop to create permuation table
+for(i in 1:n.perm) {
+  data.perm <- sample(data, n, replace=F)
+  T.perm[i] <- var(data.perm[gol.fac=="ALL"])/var(data.perm[gol.fac=="AML"])
+}
+
+booleanAnswer <- mean(T.perm < T.obs)
+cat("With a p-value of",booleanAnswer,"we can conclude that variance in the ALL group is smaller than the AML group.")
+```
+
