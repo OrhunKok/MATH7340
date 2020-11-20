@@ -106,3 +106,4 @@ T.perm[i] <- (sum((groupMeans - (sum(groupMeans)/n))^2))/(n-1)
 permOutput <- mean(T.perm >= T.obs)
 cat("The p-value is",permOutput,"therefore, we can say that we accept the null hypothesis of the sample means being equal to the mean.")
 ```
+
