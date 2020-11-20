@@ -130,3 +130,4 @@ b)
 # Plotting of the dataset according to instructions, pch values found on the internet
 plot(trees$Girth,trees$Volume, xlab = "Girth", ylab = "Volume(Red) or Height(Blue)", main = "Plot of Girth VS. Volume or Height for trees Data Set", ylim = c(0,110), pch = 1, col = "red") + points(trees$Girth,trees$Height, pch = 3, col = "blue")
 ```
+ 
