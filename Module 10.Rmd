@@ -1,0 +1,108 @@
+---
+title: "Module 10"
+author: "Orhun"
+date: "11/13/2020"
+output: html_document
+---
+
+```{r Setup, include=FALSE}
+# Load necessary packages and data
+library(BiocManager)
+library(ArrayExpress)
+library(affy)
+library(ALL)
+library(genefilter)
+# Question 1 put here so it doesn't output in markdown
+# Data
+data(ALL) 
+yeast.raw <-  ReadAffy(celfile.path= './' )
+# Expression function with all parameters set to specifications
+summaryYeast <- expresso(yeast.raw,bgcorrect.method="mas", normalize.method="quantiles",pmcorrect.method="pmonly", summary.method="medianpolish")
+# Question 2 put here so it doesn't output in markdown
+library(yeast2.db)
+library(GO.db)
+library(annotate)
+# Question 3 package
+library(hgu95av2)
+#Question 4 package
+library(limma)
+```
+
+### Question 1.
+```{r Question 1, echo = FALSE, comment = NULL, warning = FALSE}
+# Isolating genes of interest and using apply function
+firstFive <- exprs(summaryYeast)
+meanFirstFive <- apply(firstFive[1:5,],1,mean) 
+cat("b) The mean expression values for the first five genes across all samples is:",meanFirstFive)
+cat("c) There are",nrow(firstFive),"genes in the data.\nThere are",ncol(firstFive),"samples in the data.")
+```
+
+### Question 2.
+```{r Question 2, echo = FALSE, comment = NULL, warning = FALSE}
+Ano <- annotation(yeast.raw)
+cat("a) The annotation package for the yeast data is yeast2.db")
+# Finding GO ID of specified gene
+geneGO <- get("1769308_at", env = yeast2GO)
+idGO <- lapply(geneGO,function(x) x$GOID)
+cat("b) We get",length(idGO),"GO numbers.")
+# Finding GO parents and children
+gonr <- getOntology(geneGO, "MF")
+gP <- getGOParents(gonr)
+gC <- getGOChildren(gonr) 
+pa <- sapply(gP,function(x) x$Parents)    
+ch <- sapply(gC,function(x) x$Children) 
+cat("c) There are",length(pa),"GO parents.")
+cat("d) There are",length(unlist(ch)),"GO childrens.")
+```
+
+### Question 3.
+```{r Question 3, echo = FALSE, comment = NULL, warning = FALSE}
+# Setting up filters
+patientB <- ALL[,which(ALL$BT %in% c("B2","B3"))] 
+f1 <- function(x)(wilcox.test(x ~ patientB$BT[,drop=TRUE], exact = FALSE)$p.value <0.001)
+f2 <- function(x)(t.test(x ~ patientB$BT[,drop=TRUE])$p.value <0.001)
+ff <- filterfun(f1,f2)
+# Using filters for Venn diagram
+sel1 <- genefilter(exprs(patientB), filterfun(f1))
+sel2 <- genefilter(exprs(patientB), filterfun(f2))
+selected <- sel1 & sel2
+# Creating the Venn diagram
+vendiag <- apply(cbind(sel1,sel2), 2, as.integer)
+vc <- vennCounts(vendiag, include="both")      
+vennDiagram(vc)
+cat("c) We can see that 48 genes pass the wilcoxon filter, 46 pass the t-test filter and 297 genes pass both filters.")
+
+Ano2 <- annotation(ALL)
+cat("d) The annotation package for the ALL Dataset is",Ano2)
+# Finding Oncogene GO Number
+GOTerm2Tag <- function(term) {
+      GTL <- eapply(GOTERM, function(x) {grep(term, x@Term, value=TRUE)})
+      Gl <- sapply(GTL, length)
+      names(GTL[Gl>0])
+}
+oncoNum <- GOTerm2Tag("oncogene")
+# Finding how many genes are oncogenes
+ALLs <- ALL[selected,]
+tran <- hgu95av2GO2ALLPROBES$"GO:0090402"
+inboth <- tran %in% row.names(exprs(ALLs))
+ALLtran <- ALLs[tran[inboth],]
+cat("e)",dim(exprs(ALLtran))[1],"genes that pass the filters are oncogenes.")
+```
+
+### Question 4.
+```{r Question 4, echo = FALSE, comment = NULL, warning = FALSE}
+# Selecting the persons in B1,B2,B3
+allB <- ALL[,which(ALL$BT %in% c("B1","B2","B3"))] 
+design.ma <- model.matrix(~ 0 + factor(allB$BT))
+colnames(design.ma) <- c("B1","B2","B3") 
+fit <- lmFit(allB,design.ma) 
+fit <- eBayes(fit)
+cat("b) The topTable is:")
+print(topTable(fit, coef=3, number=5,adjust.method="fdr"), digits=4) 
+# Settting up contrast between groups
+cont.ma <- makeContrasts(B1-B2,B2-B3, levels=factor(allB$BT))
+fit1 <- contrasts.fit(fit, cont.ma)  
+fit1 <- eBayes(fit1)
+cat("c) There are",dim(topTable(fit1, number=Inf,adjust.method="fdr", p.value = 0.01))[1],"differentially expressed genes.")
+print(topTable(fit1, number=5,adjust.method="fdr", p.value = 0.01), digits=4) 
+```
