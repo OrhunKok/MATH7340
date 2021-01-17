@@ -88,7 +88,6 @@ inboth <- tran %in% row.names(exprs(ALLs))
 ALLtran <- ALLs[tran[inboth],]
 cat("e)",dim(exprs(ALLtran))[1],"genes that pass the filters are oncogenes.")
 ```
-
 ### Question 4.
 ```{r Question 4, echo = FALSE, comment = NULL, warning = FALSE}
 # Selecting the persons in B1,B2,B3
