@@ -1,0 +1,99 @@
+---
+title: "Module 11"
+author: "Orhun"
+date: "11/20/2020"
+output: html_document
+---
+
+```{r Setup, include = FALSE}
+library(BiocManager)
+library(multtest)
+library(ISLR)
+library(cluster)
+data(golub) 
+```
+
+### Question 1.
+```{r Question 1, echo = FALSE, comment = NULL, warning = FALSE}
+# Setting up AML/ALL designations
+gol.fac <- factor(golub.cl,levels=0:1,labels=c("ALL","AML"))
+clusdata <- data.frame(golub[1042,])
+colnames(clusdata)<-c("CCND3 Cyclin D3")
+# Clustering single/ward and cutting them into 2 groups
+hcSingle <- hclust(dist(clusdata, method="euclidian"), method="single")
+groupSingle <- cutree(hcSingle, k = 2) 
+hcWard <- hclust(dist(clusdata, method="euclidian"), method="ward.D2")
+groupWard <- cutree(hcWard, k = 2)
+# Plots and Tables
+plot(hcSingle, labels=gol.fac) 
+plot(hcWard, labels=gol.fac) 
+table(gol.fac, groupSingle)
+table(gol.fac, groupWard)
+cat("a) According to the tables, it would appear single linkage is the best for this data. We can see that the clusters capture ALL and AML near perfectly.")
+# Doing k-mean clustering
+kmeanclus <- kmeans(clusdata, centers = 2)
+table(gol.fac, kmeanclus$cluster)
+cat("c) Based on the k-mean cluster table versus the previous hierarchical ones, it appears that the single linkage hierarchical method is still the best.")
+# Setting up bootstrap
+nboot <- 2000
+bootCluster<- matrix(0, nrow = nboot, ncol = 2)
+# Conducting bootstrap
+for (i in 1:nboot){
+  CL <- kmeans(clusdata, centers = 2)
+  bootCluster[i,] <- c(CL$centers[1], CL$centers[2])
+}
+cat("d) The 95% CI from the bootstrap is",quantile(bootCluster[,1], c(0.025,0.975)), "The CI's of the cluster means overlap and the first cluster mean is estimated more accurately.")
+# K vs SSE Plot
+K <- (1:30); sse<-rep(NA,length(K))  
+for (k in K) {
+    sse[k]<-kmeans(golub, centers=k,nstart = 10)$tot.withinss
+}
+plot(K, sse, type='o', xaxt='n'); axis(1, at = K, las=2)
+cat("e) The plot suggests 3 clusters is best for the data because of the flatlining after k = 3.")
+```
+
+### Question 2.
+```{r Question 2, echo = FALSE, comment = NULL, warning = FALSE}
+# Finding oncogenes and antigens
+golubOnco <- grep("oncogene",golub.gnames[,2])
+golubAnti <- grep("antigen",golub.gnames[,2])
+# Comparing k-mean and k-medoid
+gOnco <- golub[c(golubOnco),]
+gAnti <- golub[c(golubAnti),]
+OncoAnti <- rbind(gOnco,gAnti)
+kmeanOncoAnti <- kmeans(OncoAnti, centers = 2)
+kmedOncoAnti <- pam(OncoAnti, k = 2)
+golubFAC <- factor(c(rep("oncogene",42), rep("antigene",75)))
+# Generating Tables
+kmeantable <- table(golubFAC, kmeanOncoAnti$cluster)
+kmedtable <- table(golubFAC, kmedOncoAnti$cluster)
+table(golubFAC, kmeanOncoAnti$cluster)
+table(golubFAC, kmedOncoAnti$cluster)
+# Testing Independence
+cat("c) Based on the p-value of",chisq.test(kmeantable,kmedtable)$p.value,"from the chi-square test, we can see that both clustering methods are statistically insignificant.")
+# Dendrograms
+hc2 <- hclust(dist(OncoAnti, method="euclidian"), method="single")
+hc3 <- hclust(dist(OncoAnti, method="euclidian"), method="complete")
+par(mfrow=c(1,2))  
+plot(hc2, labels = golubFAC)
+plot(hc3, labels = golubFAC)
+```
+
+### Question 3.
+```{r Question 3, echo = FALSE, comment = NULL, warning = FALSE}
+# Loading Data
+ncidata<-NCI60$data
+ncilabs<-NCI60$labs
+# Plotting k clusters vs SSE
+K2 <- (1:30); sse2<-rep(NA,length(K2))  
+for (i in K2) {
+    sse2[i]<-kmeans(ncidata, centers=i,nstart = 10)$tot.withinss
+}
+plot(K2, sse2, type='o', xaxt='n'); axis(1, at = K2, las=2) 
+cat("a) It appears that k = 4 is the best choice for this data, because the drop between points after that becomes virtually the same. We see the biggest drop-off up until k = 4. Hence, it is the best choice for the dat.")
+
+# Table and comparisons
+cl.pam <- pam(as.dist(1-cor(t(ncidata))), k=7)
+table(ncilabs, cl.pam$clustering)
+cat("b) It appears that the CNS, Colon, Leukemia, Melanoma, and Renal cancers are well indentified in a cluster. The K562A-repro, K562B-repro, MCF7A-repro, MCF7D-repro also all appear to be well indentified in a cluster but they each only have one data point so it's not really possible for their data points to be spread out across clusters.\nThe rest of the cancers seem to not be well grouped into clusters because they are too present across different cluster. It also appears that the NSCLC cancer is the most similar to ovarian cancer.")
+```
