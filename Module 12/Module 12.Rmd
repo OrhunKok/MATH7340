@@ -1,0 +1,102 @@
+---
+title: "Module 12"
+author: "Orhun"
+date: "11/27/2020"
+output: html_document
+---
+
+```{r Setup, include = FALSE}
+library(BiocManager)
+library(ALL)
+library(ArrayExpress)
+library(affy)
+library(mvtnorm)
+library(scatterplot3d)
+library(hgu95av2)
+data(ALL)
+```
+
+### Question 1.
+```{r Question 1, echo = FALSE, comment = NULL, warning = FALSE}
+# Setting up B and T Cell designations
+Bgroups <- factor(ALL$BT %in% c("B","B1","B2","B3","B4"))
+ALL.fac <- as.numeric(Bgroups)
+# Histograms for first three genes
+par(mfrow=c(1,3)); for (i in 1:3) {
+  hist(exprs(ALL[i,]), xlab = colnames(ALL)[i], main = NULL)
+}
+# Pairwise Scatterplots
+pairs(t(exprs(ALL[1:5,])), col = ALL.fac)
+# 3D Scatterplot of three genes
+at1 <- grep("^39317_at", rownames(ALL)); at1 <- ALL@assayData[["exprs"]][at1,]
+at2 <- grep("^32649_at", rownames(ALL)); at2 <- ALL@assayData[["exprs"]][at2,]
+at3 <- grep("^481_at", rownames(ALL)); at3 <- ALL@assayData[["exprs"]][at3,]
+```
+
+```{r Question 1b, echo = FALSE, comment = NULL, warning = FALSE}
+scatterplot3d(x = at1, y = at2, z = at3, color = as.numeric(ALL.fac), main="3D Scatter Plot", xlab = "39317_at", ylab = "32649_at", zlab = "481_at")
+```
+
+```{r Question 1c, echo = FALSE, comment = NULL, warning = FALSE}
+cat("d) The two patient groups seem to be distinguished using these three genes. As you can see from the plot, the black points have their own area.")
+# K-means of the three genes
+threeGenes <- data.frame(at1,at2,at3)
+k2Three <- kmeans(threeGenes, centers = 2, nstart = 10)
+k3Three <- kmeans(threeGenes, centers = 3, nstart = 10)
+table(ALL.fac, k2Three$cluster)
+table(ALL.fac, k3Three$cluster)
+cat("e) The clustering analysis with K = 2 is better at discovering the two groups but it still has problems grouping them as evidenced from the table.")
+# PCA analysis
+pr.ALL <- prcomp(ALL, scale=TRUE) 
+cat("f)The proportion of variance explained by the first and second principal component is",summary(pr.ALL)$importance[2,1],"and",summary(pr.ALL)$importance[2,2],"respectively.")
+```
+
+```{r Question 1d, echo = FALSE, comment = NULL, warning = FALSE}
+# Biplot of PC1 and PC2
+biplot(pr.ALL, xlim=c(-0.05,0.05), ylim=c(-0.05,0.05), cex=0.5)
+cat("g) We can see that the red arrows are of the same length roughly. This tells us that the first principal component is essentially the average of the patients.")
+```
+
+```{r Question 1e, echo = FALSE, comment = NULL, warning = FALSE}
+#Finding the smallest and largest genes for PC2
+pr.ALL2 <- order(pr.ALL$x[,2])
+o <- rownames(ALL)
+cat("h) The three genes with the biggest PC2 values are:",o[pr.ALL2[12623:12625]],"\nThe three genes with the smallest PC2 values are:",o[pr.ALL2[1:3]])
+cat("i) The gene with the largest PC2 value is 481_at and it is on chromosome",as.list(hgu95av2CHR)[["481_at"]],"\nThe gene with the smallest PC2 value is 39317_at and it is on chromosome",as.list(hgu95av2CHR)[["39317_at"]])
+```
+
+### Question 2.
+```{r Question 2, echo = FALSE, comment = NULL, warning = FALSE}
+# Dropping Species and doing scaling
+iris$Species <- NULL
+scaledIris <- as.data.frame(scale(iris))
+# Correlation tests
+cor(scaledIris) 
+cor(iris)
+cat("b) The first correlation table represents the scaled dataset and the second is the unscaled one. They are both identical.")
+# Distances between columns
+distancesIris <- c((dist(t(scaledIris), method = "euclidian")^2))
+# Showing proportionality
+proportionFactor <- distancesIris / (1 - (cor(scaledIris)[lower.tri(diag(4))]))
+cat("c) The value of the proportion factor is", proportionFactor[1])
+# Showing difference in PCA's for scaled vs. unscaled
+PCAiris <- prcomp(iris, scale. = FALSE)
+PCAscaledIris <- prcomp(scaledIris, scale. = FALSE)
+summary(PCAiris)
+summary(PCAscaledIris)
+cat("d) As you can see from the outputs of the PCA's above, the scaled PCA and the unscaled PCA are not the same.")
+# Proportion of Variances
+summary(PCAiris)$importance[2,]
+summary(PCAscaledIris)$importance[2,]
+cat("e) The proportion of variance explained by PC1 and PC2 in the unscaled PCA is 0.9246 and 0.05307 respectively.\nThe proportion of variance explained by PC1 and PC2 in the scaled PCA is 0.7296 and 0.2285 respectively.")
+# Bootstrap for PC2 of scaled iris data
+iris2 <- iris; iris2$Species <- NULL
+data <- iris2; n <- nrow(data) ;nboot <- 1000
+pVar <- array(dim=c(nboot,1))
+for (i in 1:nboot) {
+dat.star <- data[sample(1:n,replace=TRUE), ]     
+dat.star2 <- prcomp(dat.star, scale. = TRUE)
+pVar[i] <- summary(dat.star2)$importance[2,2]
+}
+cat("f) The 90% CI for the proportion of variance for PC2 of the scaled PCA is:", as.numeric(quantile(pVar, c(0.05,0.95))))
+```
