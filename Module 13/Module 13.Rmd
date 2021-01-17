@@ -1,0 +1,316 @@
+---
+title: "Module 13"
+author: "Orhun"
+date: "12/06/2020"
+output: html_document
+---
+
+```{r Setup, include = FALSE}
+library(BiocManager)
+library(ALL)
+library(rpart)
+library(hgu95av2)
+library(ROCR)
+library(e1071)
+library(caret)
+library(VGAM)
+data(ALL)
+```
+
+### Question 1.
+```{r Question 1, echo = FALSE, comment = NULL, warning = FALSE}
+# Setting up IsB
+IsB <- factor(ALL$BT %in% c("B","B1","B2","B3","B4"))
+# Two genes classification tree and confusion matrix
+findGenes <- grep("^39317_at|^38018_g_at", rownames(ALL))
+twoGenes <- ALL@assayData[["exprs"]][findGenes,]
+c.tr <- rpart(IsB ~ ., data = data.frame(t(twoGenes)))
+plot(c.tr, branch=0, margin=0.1); text(c.tr, digits=3)
+rpartpred <- predict(c.tr, type="class")
+table(rpartpred, IsB)
+
+# ROC Curve for classification tree
+pred <- prediction(as.numeric(rpartpred), IsB)
+perf <- performance(pred, "tpr", "fpr" )
+plot(perf)
+AUCROC <- performance(pred,"auc")
+cat("c) The MCR is",13/128,"\nThe FNR is",11/95,"\nThe Specificity is",1-(2/33),"\nThe area under the curve is",AUCROC@y.values[[1]])
+
+# 10-fold cross-validation
+n <- length(IsB)
+p <- 10
+nsim <- 1000
+DFtwoGenes <- data.frame(t(twoGenes))
+tree.cv.raw<-rep(NA, nsim)
+for (i in 1:nsim) {
+  testID <- sample(n, p, replace=FALSE)
+  tr.est <- rpart(IsB[-testID] ~ ., data = DFtwoGenes[-testID,])
+  tr.pred <- predict(c.tr, newdata = DFtwoGenes[testID,], type = "class")
+  tree.cv.raw[i] <- sum(tr.pred == "FALSE" & IsB[testID] != "FALSE")/sum(IsB[testID] != "FALSE") 
+}
+tree.cv <- mean(tree.cv.raw)
+cat("d) The estimated FNR is",tree.cv)
+
+# Logistic Regression
+reg.lgr <- glm(IsB~t(twoGenes), data=DFtwoGenes, family = binomial(link = 'logit'))
+cat("e) The 80% CI for the coefficient of 39317_at is",confint(reg.lgr, level = 0.8)[3,])
+
+# n-fold cross validation estimating MCR
+data.lgr <- data.frame(t(twoGenes))
+n2 <- dim(data.lgr)[1]
+index <- 1:n2
+K <- 10
+flds <- createFolds(index, k=K)
+mcr.cv.raw2 <- rep(NA, K)
+for (i in 1:K) {
+  testID2 <- flds[[i]]
+  data.tr <- data.lgr[-testID2,]
+  data.test <- data.lgr[testID2,]
+  fit.lgr <- glm(IsB[-testID2]~., family=binomial(link='logit'), data = data.tr)
+  pred.prob <- predict(fit.lgr, newdata=data.test, type = "response")
+  pred.B1 <- (pred.prob > 0.5)
+  mcr.cv.raw2[i] <- sum(pred.B1 != IsB[testID2])/length(pred.B1)
+}
+mcr.cv2 <- mean(mcr.cv.raw2)
+cat("f) The estimated MCR is",mcr.cv2*100,"%")
+
+# PCA on scaled data
+scaledALL <- as.data.frame(scale(t(ALL@assayData[["exprs"]])))
+PCAscaledALL <- prcomp(scaledALL, scale. = FALSE)
+plot(summary(PCAscaledALL)$importance[3,], ylab = "Cumulative Proportion")
+cat("g) Based on the plot, we can say that between 5 to 20 Principal Components should be used, because after that level, the increase in cumulative proportion is very linear.")
+
+# Sensitivity calculated via 1 - FNR
+PCAscaledALL5 <- PCAscaledALL$x[,1:5]
+PCAscaledALL5.svm <-  svm(PCAscaledALL5, IsB, type = "C-classification", kernel = "linear")
+svmpred <- predict(PCAscaledALL5.svm, PCAscaledALL5)
+mcrSpec <- 1 - sum(svmpred == "FALSE" & IsB != "FALSE")/sum(IsB != "FALSE")
+cat("h) The sensitivity of the classifier is",mcrSpec)
+
+# Leave one out cross validation
+mcr.cv.raw<-rep(NA, n)
+for (i in 1:n) {
+  svmest <- svm(PCAscaledALL5[-i,], IsB[-i], type = "C-classification", kernel = "linear")
+  svmpred2 <- predict(svmest, t(PCAscaledALL5[i,]))
+  mcr.cv.raw[i] <- mean(svmpred2 != IsB[i])
+}
+mcr.cv <- mean(mcr.cv.raw)
+cat("i) The estimated MCR is",mcr.cv*100,"%")
+
+#logistic regression or SVM
+cat("j) It appears that the SVM classifier is the better choice, based on comparing the MCR of the two methods we see that SVM gives an MCR of",sum(svmpred != IsB)/length(svmpred),"\nWhile the MCR of the Logistic regression is",mcr.cv2)
+```
+
+### Question 2.
+```{r Question 2a, echo = FALSE, comment = NULL, warning = FALSE}
+# Setting up iris data
+pca.iris <- prcomp(iris[,1:4], scale = TRUE)
+data.pca <- pca.iris$x[,1:4]
+Species <- iris$Species
+nIris <- length(Species)
+
+# For loops that do cross-validated MCR for K 1:4
+pca.cv.raw1 <- rep(NA, n)
+for (i in 1:nIris) {
+  data.pca <- pca.iris$x[,1]
+  iris2 <- data.frame(Species, data.pca)
+  svmest <- svm(data.pca[-i], Species[-i], type = "C-classification", kernel = "linear")
+  svmpred <- predict(svmest, t(data.pca[i])) 
+  pca.cv.raw1[i] <- mean(svmpred != Species[i])
+  svmestEmp <- svm(data.pca, Species, type = "C-classification", kernel = "linear")
+  svmpredEmp <- predict(svmest, data.pca) 
+  svmEmp <- mean(svmpredEmp != Species)
+}
+pca.cv1 <- mean(pca.cv.raw1)
+cat("The emprical SVM MCR for K = 1 is", svmEmp)
+cat("The leave-one-out cross-validation misclassification rates for K = 1 is", pca.cv1)
+
+pca.cv.raw2 <- rep(NA, n)
+for (i in 1:nIris) {
+  data.pca <- pca.iris$x[,1:2]
+  iris2 <- data.frame(Species, data.pca)
+  svmest <- svm(data.pca[-i,], Species[-i], type = "C-classification", kernel = "linear")
+  svmpred <- predict(svmest, t(data.pca[i,])) 
+  pca.cv.raw2[i] <- mean(svmpred != Species[i])
+  svmestEmp <- svm(data.pca, Species, type = "C-classification", kernel = "linear")
+  svmpredEmp <- predict(svmest, data.pca) 
+  svmEmp2 <- mean(svmpredEmp != Species)
+}
+pca.cv2 <- mean(pca.cv.raw1)
+cat("The emprical SVM MCR for K = 2 is", svmEmp2)
+cat("The leave-one-out cross-validation misclassification rates for K = 2 is", pca.cv2)
+
+pca.cv.raw3 <- rep(NA, n)
+for (i in 1:nIris) {
+  data.pca <- pca.iris$x[,1:3]
+  iris2 <- data.frame(Species, data.pca)
+  svmest <- svm(data.pca[-i,], Species[-i], type = "C-classification", kernel = "linear")
+  svmpred <- predict(svmest, t(data.pca[i,])) 
+  pca.cv.raw3[i] <- mean(svmpred != Species[i])
+  svmestEmp <- svm(data.pca, Species, type = "C-classification", kernel = "linear")
+  svmpredEmp <- predict(svmest, data.pca) 
+  svmEmp3 <- mean(svmpredEmp != Species)
+}
+pca.cv3 <- mean(pca.cv.raw3)
+cat("The emprical SVM MCR for K = 3 is", svmEmp3)
+cat("The leave-one-out cross-validation misclassification rates for K = 3 is", pca.cv3)
+
+pca.cv.raw4 <- rep(NA, n)
+for (i in 1:nIris) {
+  data.pca <- pca.iris$x[,1:4]
+  iris2 <- data.frame(Species, data.pca)
+  svmest <- svm(data.pca[-i,], Species[-i], type = "C-classification", kernel = "linear")
+  svmpred <- predict(svmest, t(data.pca[i,])) 
+  pca.cv.raw4[i] <- mean(svmpred != Species[i])
+  svmestEmp <- svm(data.pca, Species, type = "C-classification", kernel = "linear")
+  svmpredEmp <- predict(svmest, data.pca) 
+  svmEmp4 <- mean(svmpredEmp != Species)
+}
+pca.cv4 <- mean(pca.cv.raw4)
+cat("The emprical SVM MCR for K = 4 is", svmEmp4)
+cat("The leave-one-out cross-validation misclassification rates for K = 4 is", pca.cv4)
+```
+
+```{r Question 2b, echo = FALSE, comment = NULL, warning = FALSE}
+# For loops that determine MCR for Classification Trees
+tree.cv.rawIris <- rep(NA, nIris)
+for (i in 1:nIris) {
+  data.pca <- pca.iris$x[,1]
+  iris2 <- data.frame(Species, data.pca)
+  ctrIris <- rpart(Species~ ., data = iris2[-i,])
+  tr.predIris <- predict(ctrIris, newdata = iris2[i,], type = "class")
+  tree.cv.rawIris[i] <- mean(tr.predIris != Species[i])
+  ctrIris <- rpart(Species ~ ., data = iris2)
+  rpartpredIris <- predict(ctrIris, type="class")
+  treeEmp <- mean(rpartpredIris != Species)
+}
+treeIris1 <- mean(tree.cv.rawIris)
+cat("The empirical MCR for K = 1 of the classification tree classifier is", treeEmp)
+cat("The MCR value for K = 1 of the classification tree classifier is", treeIris1)
+
+tree.cv.rawIris2 <- rep(NA, nIris)
+for (i in 1:nIris) {
+  data.pca <- pca.iris$x[,1:2]
+  iris2 <- data.frame(Species, data.pca)
+  ctrIris <- rpart(Species ~ ., data = iris2[-i,])
+  tr.predIris <- predict(ctrIris, newdata = iris2[i,], type = "class")
+  tree.cv.rawIris2[i] <- mean(tr.predIris != Species[i])
+  ctrIris <- rpart(Species ~ ., data = iris2)
+  rpartpredIris <- predict(ctrIris, type="class")
+  treeEmp2 <- mean(rpartpredIris != Species)
+}
+treeIris2 <- mean(tree.cv.rawIris2)
+cat("The empirical MCR for K = 2 of the classification tree classifier is", treeEmp2)
+cat("The MCR value for K = 2 of the classification tree classifier is", treeIris2)
+
+tree.cv.rawIris3 <- rep(NA, nIris)
+for (i in 1:nIris) {
+  data.pca <- pca.iris$x[,1:3]
+  iris2 <- data.frame(Species, data.pca)
+  ctrIris <- rpart(Species ~ ., data = iris2[-i,])
+  tr.predIris <- predict(ctrIris, newdata = iris2[i,], type = "class")
+  tree.cv.rawIris3[i] <- mean(tr.predIris != Species[i])
+  ctrIris <- rpart(Species ~ ., data = iris2)
+  rpartpredIris <- predict(ctrIris, type="class")
+  treeEmp3 <- mean(rpartpredIris != Species)
+}
+treeIris3 <- mean(tree.cv.rawIris3)
+cat("The empirical MCR for K = 3 of the classification tree classifier is", treeEmp3)
+cat("The MCR value for K = 3 of the classification tree classifier is", treeIris3)
+
+tree.cv.rawIris4 <- rep(NA, nIris)
+for (i in 1:nIris) {
+  data.pca <- pca.iris$x[,1:4]
+  iris2 <- data.frame(Species, data.pca)
+  ctrIris <- rpart(Species ~ ., data = iris2[-i,])
+  tr.predIris <- predict(ctrIris, newdata = iris2[i,], type = "class")
+  tree.cv.rawIris4[i] <- mean(tr.predIris != Species[i])
+  ctrIris <- rpart(Species ~ ., data = iris2)
+  rpartpredIris <- predict(ctrIris, type="class")
+  treeEmp4 <- mean(rpartpredIris != Species)
+}
+treeIris4 <- mean(tree.cv.rawIris4)
+cat("The empirical MCR for K = 4 of the classification tree classifier is", treeEmp4)
+cat("The MCR value for K = 4 of the classification tree classifier is", treeIris4)
+```
+
+```{r Question 2c, echo = FALSE, comment = NULL, warning = FALSE}
+# For loops that determine MCR for Logistic Regressions
+log.cv.rawIris1 <- rep(NA, nIris)
+for (i in 1:nIris) {
+  data.pca <- pca.iris$x[,1]
+  iris2 <- data.frame(Species, data.pca)
+  fit.lgr <- vglm(Species~., family=multinomial, data = iris2[-i,])
+  pred.prob <- predict(fit.lgr, newdata = iris2[i,], type = "response")
+  pred <- apply(pred.prob, 1, which.max)
+  pred2 <- factor(pred, levels = c("1","2","3"), labels = levels(Species))
+  log.cv.rawIris1[i] <- mean(pred2 != Species[i])
+  fitEmp <- vglm(Species~., family=multinomial, data = iris2)
+  predLogEmp <- predict(fitEmp, newdata = iris2[-1], type = "response")
+  predEmp <- apply(predLogEmp, 1, which.max)
+  predEmp <- factor(predEmp, levels = c("1","2","3"), labels = levels(iris2$Species))
+  irisLogEmpOut <- mean(predEmp != iris2$Species)
+}
+logIris1 <- mean(log.cv.rawIris1)
+cat("The empirical MCR value for K = 1 of the logistic regression classifier is", irisLogEmpOut)
+cat("The MCR value for K = 1 of the logistic regression classifier is", logIris1)
+
+log.cv.rawIris2 <- rep(NA, nIris)
+for (i in 1:nIris) {
+  data.pca <- pca.iris$x[,1:2]
+  iris2 <- data.frame(Species, data.pca)
+  fit.lgr <- vglm(Species~., family=multinomial, data = iris2[-i,])
+  pred.prob <- predict(fit.lgr, newdata = iris2[i,-1], type = "response")
+  pred <- apply(pred.prob, 1, which.max)
+  pred2 <- factor(pred, levels = c("1","2","3"), labels = levels(Species))
+  log.cv.rawIris2[i] <- mean(pred2 != Species[i])
+  fitEmp <- vglm(Species~., family=multinomial, data = iris2)
+  predLogEmp <- predict(fitEmp, newdata = iris2[-1,], type = "response")
+  predEmp <- apply(predLogEmp, 1, which.max)
+  predEmp <- factor(predEmp, levels = c("1","2","3"), labels = levels(iris2$Species))
+  irisLogEmpOut2 <- mean(predEmp != iris2$Species)
+}
+logIris2 <- mean(log.cv.rawIris2)
+cat("The empirical MCR value for K = 2 of the logistic regression classifier is", irisLogEmpOut2)
+cat("The MCR value for K = 2 of the logistic regression classifier is", logIris2)
+
+log.cv.rawIris3 <- rep(NA, nIris)
+for (i in 1:nIris) {
+  data.pca <- pca.iris$x[,1:3]
+  iris2 <- data.frame(Species, data.pca)
+  fit.lgr <- vglm(Species~., family=multinomial, data = iris2[-i,])
+  pred.prob <- predict(fit.lgr, newdata = iris2[i,-1], type = "response")
+  pred <- apply(pred.prob, 1, which.max)
+  pred2 <- factor(pred, levels = c("1","2","3"), labels = levels(Species))
+  log.cv.rawIris3[i] <- mean(pred2 != Species[i])
+  fitEmp <- vglm(Species~., family=multinomial, data = iris2)
+  predLogEmp <- predict(fitEmp, newdata = iris2[-1,], type = "response")
+  predEmp <- apply(predLogEmp, 1, which.max)
+  predEmp <- factor(predEmp, levels = c("1","2","3"), labels = levels(iris2$Species))
+  irisLogEmpOut3 <- mean(predEmp != iris2$Species)
+}
+logIris3 <- mean(log.cv.rawIris3)
+cat("The empirical MCR value for K = 3 of the logistic regression classifier is", irisLogEmpOut3)
+cat("The MCR value for K = 3 of the logistic regression classifier is", logIris3)
+
+log.cv.rawIris4 <- rep(NA, nIris)
+for (i in 1:nIris) {
+  data.pca <- pca.iris$x[,1:4]
+  iris2 <- data.frame(Species, data.pca)
+  fit.lgr <- vglm(Species~., family=multinomial, data = iris2[-i,])
+  pred.prob <- predict(fit.lgr, newdata = iris2[i,-1], type = "response")
+  pred <- apply(pred.prob, 1, which.max)
+  pred2 <- factor(pred, levels = c("1","2","3"), labels = levels(Species))
+  log.cv.rawIris4[i] <- mean(pred2 != Species[i])
+  fitEmp <- vglm(Species~., family=multinomial, data = iris2)
+  predLogEmp <- predict(fitEmp, newdata = iris2[-1,], type = "response")
+  predEmp <- apply(predLogEmp, 1, which.max)
+  predEmp <- factor(predEmp, levels = c("1","2","3"), labels = levels(iris2$Species))
+  irisLogEmpOut4 <- mean(predEmp != iris2$Species)
+}
+logIris4 <- mean(log.cv.rawIris4)
+cat("The empirical MCR value for K = 4 of the logistic regression classifier is", irisLogEmpOut4)
+cat("The MCR value for K = 4 of the logistic regression classifier is", logIris4)
+
+cat("Based on the rates and the comparison between the empirical and cross-validated MCR rates it appears that logistic regression classifier is the best choice, however the SVM classifier is very close in accuracy as well and could be a good choice as well.")
+```
