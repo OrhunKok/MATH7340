@@ -78,7 +78,6 @@ par(mfrow=c(1,2))
 plot(hc2, labels = golubFAC)
 plot(hc3, labels = golubFAC)
 ```
-
 ### Question 3.
 ```{r Question 3, echo = FALSE, comment = NULL, warning = FALSE}
 # Loading Data
